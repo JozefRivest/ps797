@@ -12,8 +12,8 @@ date: "2025-09-02"
 # Examples from marginaleffects
 #--------------------------------------------------------
 # you may need to run:
-  # install.packages("marginaleffects")
-  # install.packages("texreg")
+# install.packages("marginaleffects")
+# install.packages("texreg")
 library(marginaleffects)
 library(tidyverse)
 library(texreg)
@@ -30,15 +30,27 @@ quantile(dat$nchar)
 
 # Warmup questions
 
-1.  $X$ is an $n \times (p+1)$ matrix of covariates with an intercept column. $\beta$ is a $(p + 1) \times 1$ vector, and $y$ is an $n \times 1$ vector. What are the dimensions of $(X\beta)^Ty$?
+1.  $X$ is an $n \times (p+1)$ matrix of covariates with an intercept
+column. $\beta$ is a $(p + 1) \times 1$ vector, and $y$ is an $n
+\times 1$ vector. What are the dimensions of $(X\beta)^Ty$?
+- $1 \ntimes 1$, in other words a scalar.
 
-2.  $A$ is a two (row) by three (column) matrix. The second row is equal to 2 times the first row. Write this matrix $A$, and write $A^T$. How would you describe the relationship between the columns in $A^T$?
+2.  $A$ is a two (row) by three (column) matrix. The second row is
+equal to 2 times the first row. Write this matrix $A$, and write
+$A^T$. How would you describe the relationship between the columns
+in $A^T$?
+
+- $A^T$, the relationship between the columns is that they are linearly dependent. 
 
 ------------------------------------------------------------------------
 
 # Predictions for Social Science
 
-Rothstein and Teorell (2008) paper from `marginaleffects` vignette is described as arguing: ``a critical component of good governance in a country is the impartiality of its government institutions, or the degree to which state power is exercised according to written laws rather than personal connections or biases."  The variables they included:
+Rothstein and Teorell (2008) paper from `marginaleffects` vignette is described
+as arguing: ``a critical component of good governance in a country is the
+impartiality of its government institutions, or the degree to which state power
+is exercised according to written laws rather than personal connections or
+biases."  The variables they included:
 
 - `impartial`: A binary indicator equal to 1 if a country's public officials are impartial in the performance of their duties.
 - `equal`: A continuous scale from 0 to 100 where higher values indicate that resources like public goods and welfare policies are distributed more equally across society.
@@ -49,7 +61,8 @@ Rothstein and Teorell (2008) paper from `marginaleffects` vignette is described 
 # Fit example model: different from reading, same data
 #--------------------------------------------------------
 fit_lm <- lm(equal ~ impartial * democracy * nchar + continent,
-             data = dat)
+  data = dat
+)
 
 summary(fit_lm)
 
@@ -71,6 +84,26 @@ Hints:
 ```{r}
 # 0. Predictions on ORIGINAL data
 
+# How to write (X^T)^-1 X^T Y
+
+model.matrix(fit_lm)
+
+# model.matrix is equal to making the X matrix of predictors without the outcome variable
+
+X <- model.matrix(fit_lm)
+
+y <- fit_lm$model[, "equal"] # to avoid having NA rows
+
+# X^T X
+
+t(X) * X # This is not matrix multiplication!!!!
+
+X_TX <- t(X) %*% X
+solve(X_TX)
+
+# X_T y
+
+round((solve(t(X) %*% X) %*% t(X) %*% Y), 2)
 ```
 
 # What good is a prediction?
@@ -78,13 +111,15 @@ Hints:
 You can use the `predict()` function to get predictions for given values of X:
 
 ```{r}
+beta_hat <- (solve(t(X) %*% X) %*% t(X) %*% Y)
 
+predict(fit_lm, newdata = dat[1:3, ])
 ```
 
 But, `marginaleffects` package offers a lot more too!
 
 ```{r}
-
+predictions(fit_lm)
 ```
 
 # Example: finding the "average" prediction for our data
@@ -94,7 +129,8 @@ When writing, you often want to present predicted values for "example" cases in 
 For example: "the model predicts that, on average, democratic countries have an outcome of XX." 
 
 ```{r}
-
+avg_predictions(fit_lm, by = "democracy") # mean of the predictions
+avg_predictions(fit_lm, variables = "democracy") # the average case
 ```
 
 Predictions are an extremely powerful tool, but you should be careful to understand exactly what you are predicting.
@@ -156,12 +192,19 @@ n <- nrow(dat)
 p <- 80
 
 dat_extra <- as.data.frame(
-  replicate(p, {
-    type <- sample(c("num", "str", "logical"), 1)
-    if (type == "num") rnorm(n)
-    else if (type == "str") sample(letters[1:5], n, TRUE)
-    else sample(c(TRUE, FALSE), n, TRUE)
-  }, simplify = FALSE)
+  replicate(p,
+    {
+      type <- sample(c("num", "str", "logical"), 1)
+      if (type == "num") {
+        rnorm(n)
+      } else if (type == "str") {
+        sample(letters[1:5], n, TRUE)
+      } else {
+        sample(c(TRUE, FALSE), n, TRUE)
+      }
+    },
+    simplify = FALSE
+  )
 )
 
 names(dat_extra) <- paste0("var", 1:p)
