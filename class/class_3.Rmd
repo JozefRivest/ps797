@@ -103,7 +103,7 @@ solve(X_TX)
 
 # X_T y
 
-round((solve(t(X) %*% X) %*% t(X) %*% Y), 2)
+round((solve(t(X) %*% X) %*% t(X) %*% y), 2)
 ```
 
 # What good is a prediction?
@@ -111,7 +111,7 @@ round((solve(t(X) %*% X) %*% t(X) %*% Y), 2)
 You can use the `predict()` function to get predictions for given values of X:
 
 ```{r}
-beta_hat <- (solve(t(X) %*% X) %*% t(X) %*% Y)
+beta_hat <- (solve(t(X) %*% X) %*% t(X) %*% y)
 
 predict(fit_lm, newdata = dat[1:3, ])
 ```
@@ -145,18 +145,31 @@ Predictions are an extremely powerful tool, but you should be careful to underst
 Are these in general the same? Show whether or not they are using this data as an example.
 
 ```{r}
+# 1. Predicting an average case, a representative country that doesn't really exist
 
+avg_predictions(fit_lm, variables = "impartial")
+
+mean(dat$impartial)
+
+table(dat$democracy) # Democracy is the modal case
+
+# Take the data and build an hypothetical avg country
+predictions(fit_lm, newdata = "mean")
+
+avg_predictions(fit_lm, variables = "democracy")
 ```
+
 You can plot these too:
 
 ```{r}
-
+plot_predictions(fit_lm, by = c("continent", "democracy"))
 ```
 
 And, these are `ggplot()` objects so you can easily customize visualization:
 
 ```{r}
-
+plot_predictions(fit_lm, by = c("continent", "democracy")) +
+  theme_classic()
 ```
 
 A lot more sophisticated stuff you can do in the package: hypothesis tests, predicted changes in variables, etc.
@@ -164,7 +177,7 @@ A lot more sophisticated stuff you can do in the package: hypothesis tests, pred
 You may want to *contrast* predictions between cases, such as democracies vs. autocracies. Can make comparisons directly:
 
 ```{r}
-
+avg_comparisons(fit_lm, variables = "democracy")
 ```
 
 # Predictions can also help you understand your own model better
@@ -179,19 +192,29 @@ You may want to *contrast* predictions between cases, such as democracies vs. au
 
 Motivates two recurring problems with OLS and our approach to prediction so far:
 
-1. **OLS is always trying to minimize predictive error, no matter what**: This means that coefficients and variances can sometimes get very very large, because this helps shrink error in some cases regardless of how "realistic" those predictions are.
-2. **Overfitting**: Similarly, OLS will fit the data to whatever columns we ask it to, whether or not there is any genuine ``strong" relationship. This overfitting is made worse by the fact that we have been training (fitting) and testing (evaluating) our model on the same data. Soon, that will change!
+1. **OLS is always trying to minimize predictive error, no matter
+what**: This means that coefficients and variances can sometimes
+get very very large, because this helps shrink error in some cases
+regardless of how "realistic" those predictions are.  
+
+2. **Overfitting**:
+Similarly, OLS will fit the data to whatever columns we ask it to,
+whether or not there is any genuine ``strong" relationship. This
+overfitting is made worse by the fact that we have been training
+(fitting) and testing (evaluating) our model on the same data. Soon,
+that will change!
 
 **Illustration**: OLS coefficients / variances can blow up:
 
 ```{r}
 #------------------------------------------------------
 # make 80 fake, random "noise" columns
+# when p (the number of parameters in the model) >> n
 
 n <- nrow(dat)
 p <- 80
 
-dat_extra <- as.data.frame(
+dat_extra <- as.data.frame( # Making fake data
   replicate(p,
     {
       type <- sample(c("num", "str", "logical"), 1)
@@ -217,11 +240,35 @@ dat_full$country <- NULL
 
 fit_full <- lm(equal ~ ., data = dat_full)
 
-texreg::screenreg(fit_full)
+texreg::screenreg(fit_full) # R2 of 1!
 ```
 
 **Illustration**: overfitting!
 
 ```{r}
+# These random columns end up having a really strong fit
+# with the data
 
+# get the MSE for the light model
+summary(fit_lm)
+
+# and the model with everything
+summary(fit_full)
+
+
+y <- dat$equal
+y_hat_full <- predict(fit_full, newdata = dat_full)
+y_hat <- predict(fit_lm, newdata = dat)
+
+# The estimation between y and y_hat_full are exactly the same
+# even if the data made was all junk
+cbind(y, y_hat, y_hat_full)
+
+# This is due to the fact that the training and test data are the same
+
+# MSE full model
+mean((y - y_hat_full)^2) # The fact these ase small is FAKE NEWS
+
+# MSE light model
+mean((y - y_hat)^2)
 ```
